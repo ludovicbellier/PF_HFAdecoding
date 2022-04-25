@@ -1,6 +1,10 @@
 function PF_processingAnatomy(patientCode)
 % patientCode = 'AMC007';
 
+global workingDir;
+if isempty(workingDir)
+    workingDir = '/home/knight/lbellier/DataWorkspace/_projects/PinkFloyd/';
+end
 ftDir = '/home/knight/lbellier/DataWorkspace/_tools/git/fieldtrip/';
 if exist('ft_defaults.m', 'file') == 0
     addpath(ftDir); ft_defaults;
@@ -8,9 +12,9 @@ end
 
 %% Anatomical workflow step 1
 patientInfo = PF_infoPatients(patientCode);
-pathAnat = ['/home/knight/lbellier/DataWorkspace/_projects/PinkFloyd/_anatomy/' patientCode '/'];
-if exist(pathAnat, 'dir') == 0
-    system(sprintf('mkdir %s', pathAnat));
+anatDir = [workingDir '_anatomy/' patientCode '/'];
+if exist(anatDir, 'dir') == 0
+    system(sprintf('mkdir %s', anatDir));
 end
 fshome = '/usr/local/freesurfer_x86_64-6.0.0/';
 ft_hastoolbox('spm12', 1);
@@ -37,21 +41,21 @@ if ~isempty(patientInfo.MR)
     
     %% Step 5
     cfg           = [];
-    cfg.filename  = [pathAnat patientCode '_MR_acpc'];
+    cfg.filename  = [anatDir patientCode '_MR_acpc'];
     cfg.filetype  = 'nifti';
     cfg.parameter = 'anatomy';
     ft_volumewrite(cfg, mri_acpc);
     
     %% Step 6
-    subdir     = pathAnat;
-    mrfile     = [pathAnat patientCode '_MR_acpc.nii'];
+    subdir     = anatDir;
+    mrfile     = [anatDir patientCode '_MR_acpc.nii'];
     system(['export FREESURFER_HOME=' fshome '; ' ...
         'source $FREESURFER_HOME/SetUpFreeSurfer.sh; ' ...
         'mri_convert -c -oc 0 0 0 ' mrfile ' ' [subdir '/tmp.nii'] '; ' ...
         'recon-all -i ' [subdir '/tmp.nii'] ' -s ' 'freesurfer' ' -sd ' subdir ' -all'])
     
     %% Step 7
-    pial_lh = ft_read_headshape([pathAnat 'freesurfer/surf/lh.pial']);
+    pial_lh = ft_read_headshape([anatDir 'freesurfer/surf/lh.pial']);
     pial_lh.coordsys = 'acpc';
     figure;
     subplot(1,2,1);
@@ -61,7 +65,7 @@ if ~isempty(patientInfo.MR)
     lighting gouraud;
     camlight;
     
-    pial_rh = ft_read_headshape([pathAnat 'freesurfer/surf/rh.pial']);
+    pial_rh = ft_read_headshape([anatDir 'freesurfer/surf/rh.pial']);
     pial_rh.coordsys = 'acpc';
     subplot(1,2,2);
     ft_plot_mesh(pial_rh);
@@ -71,7 +75,7 @@ if ~isempty(patientInfo.MR)
     camlight;
     
     %% Step 8
-    fsmri_acpc = ft_read_mri([pathAnat 'freesurfer/mri/T1.mgz']);
+    fsmri_acpc = ft_read_mri([anatDir 'freesurfer/mri/T1.mgz']);
     fsmri_acpc.coordsys = 'acpc';
 else
     fsmri_acpc = ft_read_mri([ftDir 'template/anatomy/single_subj_T1_1mm.nii']);
@@ -105,7 +109,7 @@ ct_acpc_f = ft_volumerealign(cfg, ct_acpc, fsmri_acpc);
 
 %% Step 15
 cfg           = [];
-cfg.filename  = [pathAnat patientCode '_CT_acpc_f'];
+cfg.filename  = [anatDir patientCode '_CT_acpc_f'];
 cfg.filetype  = 'nifti';
 cfg.parameter = 'anatomy';
 ft_volumewrite(cfg, ct_acpc_f);
@@ -113,7 +117,7 @@ ft_volumewrite(cfg, ct_acpc_f);
 %% Step 16
 hdr = ft_read_header(patientInfo.filename{1});
 hdr = hdr.label; %#ok
-save([pathAnat patientCode '_hdrLabels.mat'], 'hdr'); % for use on local computer
+save([anatDir patientCode '_hdrLabels.mat'], 'hdr'); % for use on local computer
 
 %% Step 17 - performed on a local computer
 % cfg         = [];
@@ -122,42 +126,42 @@ save([pathAnat patientCode '_hdrLabels.mat'], 'hdr'); % for use on local compute
 
 %% Step 19
 if ~isempty(patientInfo.MR)
-    fsmri_acpc = ft_read_mri([pathAnat 'freesurfer/mri/T1.mgz']);
+    fsmri_acpc = ft_read_mri([anatDir 'freesurfer/mri/T1.mgz']);
     fsmri_acpc.coordsys = 'acpc';
 else
     fsmri_acpc = ft_read_mri([ftDir 'template/anatomy/single_subj_T1_1mm.nii']);
     fsmri_acpc.coordsys = 'acpc';
 end
-load([pathAnat patientCode '_elecCoord.mat'])
+load([anatDir patientCode '_elecCoord.mat'])
 ft_plot_ortho(fsmri_acpc.anatomy, 'transform', fsmri_acpc.transform, 'style', 'intersect');
 ft_plot_sens(elec_acpc_f, 'label', 'on', 'fontcolor', 'w');
 
 %% Step 20
-save([pathAnat patientCode '_elec_acpc_f.mat'], 'elec_acpc_f');
-delete ([pathAnat patientCode '_elecCoord.mat'], [pathAnat patientCode '_hdrLabels.mat']);
+save([anatDir patientCode '_elec_acpc_f.mat'], 'elec_acpc_f');
+delete ([anatDir patientCode '_elecCoord.mat'], [anatDir patientCode '_hdrLabels.mat']);
 if ~isempty(patientInfo.MR)
     %% Step 21
     cfg           = [];
     cfg.method    = 'cortexhull';
     cfg.fshome    = fshome;
-    cfg.headshape = [pathAnat 'freesurfer/surf/lh.pial'];
+    cfg.headshape = [anatDir 'freesurfer/surf/lh.pial'];
 %     cfg.smooth_steps = 60;
     cfg.outer_surface_sphere = 80;
     hull_lh = ft_prepare_mesh(cfg);
 %     hull_lh = inflateHull(hull_lh, ft_read_headshape([pathAnat 'freesurfer/surf/lh.pial']), []);
-    cfg.headshape = [pathAnat 'freesurfer/surf/rh.pial'];
+    cfg.headshape = [anatDir 'freesurfer/surf/rh.pial'];
     hull_rh = ft_prepare_mesh(cfg);
 %     hull_rh = inflateHull(hull_rh, ft_read_headshape([pathAnat 'freesurfer/surf/rh.pial']), []);
 
     %% Step 22
-    save([pathAnat patientCode '_hull_lh.mat'], 'hull_lh');
-    save([pathAnat patientCode '_hull_rh.mat'], 'hull_rh');
+    save([anatDir patientCode '_hull_lh.mat'], 'hull_lh');
+    save([anatDir patientCode '_hull_rh.mat'], 'hull_rh');
 end
 
 %% Step 23
 if ~isempty(patientInfo.MR)
-    load([pathAnat patientCode '_hull_lh.mat']);
-    load([pathAnat patientCode '_hull_rh.mat']);
+    load([anatDir patientCode '_hull_lh.mat']);
+    load([anatDir patientCode '_hull_rh.mat']);
 else
     load('/home/knight/ecog_tmp/Recon_Functions/template_hull.mat');
     clear mesh mesh_lh mesh_rh
@@ -171,7 +175,7 @@ else
     viewPoint = [90 0];
 end
 
-load([pathAnat patientCode '_elec_acpc_f.mat']);
+load([anatDir patientCode '_elec_acpc_f.mat']);
 grids = patientInfo.ecogGrids;
 strips = patientInfo.ecogStrips;
 gridsNstrips = [grids strips];
@@ -254,11 +258,11 @@ view(viewPoint); material dull; lighting gouraud; camlight;
 % elecTMP2.chanpos(idxLabel, :) = cursor_info.Position;
 
 %% Step 25
-save([pathAnat patientCode '_elec_acpc_fr.mat'], 'elec_acpc_fr');
+save([anatDir patientCode '_elec_acpc_fr.mat'], 'elec_acpc_fr');
 
 %% Step 26 - Volume-based normalization -> MNI template
 if ~isempty(patientInfo.MR)
-    fsmri_acpc = ft_read_mri([pathAnat 'freesurfer/mri/T1.mgz']);
+    fsmri_acpc = ft_read_mri([anatDir 'freesurfer/mri/T1.mgz']);
     fsmri_acpc.coordsys = 'acpc';
     cfg            = [];
     cfg.nonlinear  = 'yes';
@@ -271,7 +275,7 @@ elec_mni_frv = elec_acpc_fr;
 elec_mni_frv.elecpos = ft_warp_apply(fsmri_mni.params, elec_acpc_fr.elecpos, 'individual2sn');
 elec_mni_frv.chanpos = ft_warp_apply(fsmri_mni.params, elec_acpc_fr.chanpos, 'individual2sn');
 elec_mni_frv.coordsys = 'mni';
-save([pathAnat patientCode '_elec_mni_frv.mat'], 'elec_mni_frv');
+save([anatDir patientCode '_elec_mni_frv.mat'], 'elec_mni_frv');
 
 %% Step 27.5
 load('/home/knight/ecog/ecog_scripts/Recon_Functions/template_hull.mat');
@@ -286,7 +290,7 @@ else
     viewPoint = [90 0];
 end
 
-load([pathAnat patientCode '_elec_mni_frv.mat']);
+load([anatDir patientCode '_elec_mni_frv.mat']);
 grids = patientInfo.ecogGrids;
 strips = patientInfo.ecogStrips;
 gridsNstrips = [grids strips];
@@ -349,7 +353,7 @@ view(viewPoint); material dull; lighting gouraud; camlight;
 % view(viewPoint); material dull; lighting gouraud; camlight;
 
 %% Step 29
-save([pathAnat patientCode '_elec_mni_frvr.mat'], 'elec_mni_frvr');
+save([anatDir patientCode '_elec_mni_frvr.mat'], 'elec_mni_frvr');
 
 %% Step 30 - Surface-based normalization -> Freesurfer average template
 latImplant = patientInfo.laterality;
@@ -357,7 +361,7 @@ cfg           = [];
 cfg.channel   = 'all';
 cfg.elec      = elec_acpc_fr;
 cfg.method    = 'headshape';
-cfg.headshape = sprintf('%sfreesurfer/surf/%s.pial', pathAnat, latImplant);
+cfg.headshape = sprintf('%sfreesurfer/surf/%s.pial', anatDir, latImplant);
 cfg.warp      = 'fsaverage';
 cfg.fshome    = fshome;
 elec_fsavg_frs = ft_electroderealign(cfg);
@@ -381,19 +385,19 @@ view(viewPoint); material dull; lighting gouraud; camlight;
 % view(viewPoint); material dull; lighting gouraud; camlight;
 
 %% Step 32
-save([pathAnat patientCode '_elec_fsavg_frs.mat'], 'elec_fsavg_frs');
+save([anatDir patientCode '_elec_fsavg_frs.mat'], 'elec_fsavg_frs');
 
 %% Step 33
 atlas_MNI = ft_read_atlas([ftDir 'template/atlas/aal/ROI_MNI_V4.nii']);
 atlas_MNI.coordsys = 'mni';
-atlas_FS = ft_read_atlas([pathAnat 'freesurfer/mri/aparc+aseg.mgz']);
+atlas_FS = ft_read_atlas([anatDir 'freesurfer/mri/aparc+aseg.mgz']);
 atlas_FS.coordsys = 'acpc';
 mri_MNI = ft_read_mri([ftDir 'template/anatomy/single_subj_T1_1mm.nii']);
 mri_MNI.coordsys = 'mni';
 
 %% Step 34
-load([pathAnat patientCode '_elec_acpc_fr.mat']);
-load([pathAnat patientCode '_elec_mni_frvr.mat']);
+load([anatDir patientCode '_elec_acpc_fr.mat']);
+load([anatDir patientCode '_elec_mni_frvr.mat']);
 
 cfg = [];
 cfg.parameter = 'tissue';
@@ -451,7 +455,7 @@ labelNames_FS = labels_FS(1).name;
 % end
 % toc
 
-save([pathAnat patientCode '_labelTable.mat'], 'labels_MNI', 'labelTable_MNI', 'labelNames_MNI', 'labels_FS', 'labelTable_FS', 'labelNames_FS');
+save([anatDir patientCode '_labelTable.mat'], 'labels_MNI', 'labelTable_MNI', 'labelNames_MNI', 'labels_FS', 'labelTable_FS', 'labelNames_FS');
 % save([pathAnat patientCode '_labelTable.mat'], 'labels_MNI', 'labelTable_MNI', 'labelNames_MNI');
 % save([pathAnat patientCode '_labelTable_FS.mat'], 'labels_FS', 'labelTable_FS', 'labelNames_FS');
 

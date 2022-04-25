@@ -1,7 +1,11 @@
 function PF_preprocessingArtifacts(patientCode, runCode, suffix, autoArtRejParams, flagFig)
 
-% patientCode = 'AMC062'; runCode = 1; suffix = 'HFB';
-dataPath = '/home/knight/lbellier/DataWorkspace/_projects/PinkFloyd/';
+% patientCode = 'AMC062'; runCode = 1; suffix = 'HFA';
+
+global workingDir;
+if isempty(workingDir)
+    workingDir = '/home/knight/lbellier/DataWorkspace/_projects/PinkFloyd/';
+end
 
 if nargin < 5
     flagFig = 1;
@@ -10,7 +14,7 @@ if nargin < 4
     autoArtRejParams = [7 .05]; % threshZ, threshShared
 end
 
-filename = sprintf('%s_preprocessed_ECoG/%s_TheWall1_run%i_preprocessed_%s.mat', dataPath, patientCode, runCode, suffix);
+filename = sprintf('%s_preprocessed_ECoG/%s_TheWall1_run%i_preprocessed_%s.mat', workingDir, patientCode, runCode, suffix);
 load(filename, 'ecog', 'patientInfo', 'stim32', 'CF32', 'stim128', 'CF128');
 
 if strcmp(autoArtRejParams, 'manual')
