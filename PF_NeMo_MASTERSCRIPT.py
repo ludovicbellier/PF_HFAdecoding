@@ -15,7 +15,7 @@ import numpy as np
 import scipy.io as sio
 
 sys.path.extend(['/home/knight/lbellier/DataWorkspace/_tools/git/NeMo/'])
-import nemo as nm
+import nemo as nm  # noqa: E402
 
 
 ########################################################################################################################
@@ -75,22 +75,18 @@ classes = []
 cv_results = ()
 hyperparam_grid = {}
 best_hyperparam = []
-working_dir = '/home/knight/lbellier/DataWorkspace/_projects/'
+working_dir = '/home/knight/lbellier/DataWorkspace/_projects/PinkFloyd/'
 data_dir = '_preprocessed_ECoG/'
 
 # Load data
 time_start = time.time()
-if dataset_id in ['PF', 'PinkFloyd']:
-    working_dir += 'PinkFloyd/'
-    stim_name = 'TheWall1_run%d' % run_code
-    params['vocal_boundaries'] = (13, 80)  # time boundaries of the vocals (sec), for stratified split
-    params['flag_log'] = 1
-    if params['model_type'] == 'recon':
-        params['fixed_test'] = (60, 75)  # fixed test set to be reconstructed (sec)
-else:
-    stim_name = ''
-fname_in = '%s%s_%s_preprocessed%s.mat' % (data_dir, patient_code, stim_name, suffix)
-data = sio.loadmat(working_dir + fname_in)
+stim_name = 'TheWall1_run%d' % run_code
+params['vocal_boundaries'] = (13, 80)  # time boundaries of the vocals (sec), for stratified split
+params['flag_log'] = 1
+if params['model_type'] == 'recon':
+    params['fixed_test'] = (60, 75)  # fixed test set to be reconstructed (sec)
+fname_in = '%s_%s_preprocessed%s.mat' % (patient_code, stim_name, suffix)
+data = sio.loadmat(working_dir + data_dir + fname_in)
 if params['model_type'] == 'recon':
     params['stim_type'] = 'stim128'
     params['algo'] = 'MLP'
@@ -115,10 +111,7 @@ else:
 #  Data preparation
 ########################################################################################################################
 # Create classes for stratified split
-if dataset_id in ['PF', 'PinkFloyd', 'CR', 'continuousRec', 'TIMIT', 'AL']:
-    classes = nm.create_classes(data[params['stim_type']], **params)
-elif dataset_id in ['SS', 'MVS', 'ShortStories']:
-    classes = np.asarray(data['strata'][:, 0], dtype='float64') - 1
+classes = nm.create_classes(data[params['stim_type']], **params)
 
 # Define features and target
 if params['model_type'] == 'encoding':
@@ -139,7 +132,7 @@ if params['model_type'] == 'encoding':
 elif params['model_type'] in ['decoding', 'recon']:
     if len(elec_idx) == 0 and 'supergrid' not in patient_code:
         try:
-            STRF_metrics = sio.loadmat(working_dir + 'analysis/STRFmetrics_HFB_29pat.mat')
+            STRF_metrics = sio.loadmat(working_dir + 'analysis/STRFmetrics_HFA_29pat.mat')
             idx_pat = np.where(STRF_metrics['patList'][:, 0] == patient_code)[0][0] + 1
             STRF_metrics = STRF_metrics['metrics'][STRF_metrics['metrics'][:, 0] == idx_pat, :]
             elec_idx = np.intersect1d(np.intersect1d(np.where(STRF_metrics[:, 6] == 1)[0],
@@ -183,8 +176,7 @@ if len(params['slice_idx']) > 0:
 # Build the feature lag matrix
 [features, target, artifacts, classes] = nm.build_lag_matrix(features, target, artifacts, classes, **params)
 if params['model_type'] == 'encoding':
-    [features, target, artifacts, classes] = nm.fix_artifacts(features, target, artifacts, classes,
-                                                              'remove', **params)
+    [features, target, artifacts, classes] = nm.fix_artifacts(features, target, artifacts, classes, 'remove', **params)
 params['n_feat'] = features.shape[1]
 params['n_feat_y'] = int(params['n_feat'] / (params['lags'] * params['fs']))
 params['n_target'] = target.shape[1]
@@ -216,8 +208,7 @@ if params['flag_tune'] > 0:
     else:
         hyperparam_grid = {}
 
-    [best_hyperparam, cv_results, y_pred_cv] = nm.grid_search(features, target, groups, classes, params,
-                                                              hyperparam_grid)
+    [best_hyperparam, cv_results] = nm.grid_search(features, target, groups, classes, params, hyperparam_grid)
     params.update(best_hyperparam)
 
     if params['flag_tune'] == 2:
@@ -226,9 +217,7 @@ if params['flag_tune'] > 0:
                                                                  params['algo'])
         if params['random_state'] is None:
             params['random_state'] = 'None'
-        if params['flag_log'] == 1:
-            y_pred_cv = np.exp(y_pred_cv)
-        mdict = {'cv_results': cv_results, 'hyperparam_grid': hyperparam_grid, 'y_pred_cv': y_pred_cv, 'params': params}
+        mdict = {'cv_results': cv_results, 'hyperparam_grid': hyperparam_grid, 'params': params}
         sio.savemat(working_dir + fname_out_cv, mdict=mdict)
         sys.exit()
 
