@@ -1,0 +1,7 @@
+flag_tune = 0
+group_length = 2
+split_ratio = (.6, .2, .2)
+n_splits = 100
+lr_decoding = .001
+learning_rate = .001
+algo = 'rMLRwES'

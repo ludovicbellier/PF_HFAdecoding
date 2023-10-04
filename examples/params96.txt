@@ -1,0 +1,10 @@
+algo = 'MLP'
+flag_tune = 1
+n_cv_tuning = 10
+n_splits = 100
+split_ratio = (.7, .2, .1)
+flag_log = 1
+early_stopping = True
+group_length = 5
+lags_decoding = (.5, 0)
+fixed_test = (60, 75)
